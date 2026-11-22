@@ -305,10 +305,12 @@ Rules:
                 l["emotion"] = "neutral"
         return [l for l in ls if l["text"]]
 
+    lo_w, hi_w = int(min(words * 0.7, words - 6)), int(max(words * 1.45, words + 8))
+
     def check(ls: list[dict], need_words: bool) -> list[str]:
         errs = []
         n = sum(len(l["text"].split()) for l in ls)
-        if need_words and not int(words * 0.7) <= n <= int(words * 1.45):
+        if need_words and not lo_w <= n <= hi_w:
             errs.append(f"this beat has {n} words; write {int(words*0.85)}-{int(words*1.2)} words")
         for i, l in enumerate(ls):
             if l["speaker"] not in ids:
@@ -332,7 +334,7 @@ Rules:
     def validate(o):
         o["lines"] = repair(o.get("lines", []))
         n = sum(len(l["text"].split()) for l in o["lines"])
-        errs = check(o["lines"], need_words=n > words * 1.45)  # too short is fixed by continuation below
+        errs = check(o["lines"], need_words=n > hi_w)  # too short is fixed by continuation below
         if errs:
             raise ValueError("; ".join(errs[:8]))
 
@@ -349,7 +351,7 @@ Rules:
     lines = out["lines"]
     for _ in range(2):  # continuation calls when a beat came back short
         n = sum(len(l["text"].split()) for l in lines)
-        if n >= words * 0.8:
+        if n >= max(lo_w, words * 0.8):
             break
         more = words - n
         cont = user.replace(f"Dialogue so far (most recent last):\n{recent}",
@@ -359,7 +361,10 @@ Rules:
                  f"(about {more} words) that follow directly from the last line. is_reveal=false on all of them.")
         extra = llm.complete_json(SYSTEM, cont, BEAT_SCHEMA, job_id=job_id, stage="script",
                                   validate=validate_continuation, max_tokens=4000, retries=2)
-        lines += extra["lines"]
+        for l in extra["lines"]:  # take continuation lines only while within budget
+            if sum(len(x["text"].split()) for x in lines) + len(l["text"].split()) > hi_w:
+                break
+            lines.append(l)
     errs = check(lines, need_words=True)
     if errs:
         raise ScriptRejected(f"beat {beat.name}: " + "; ".join(errs[:6]))

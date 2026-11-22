@@ -1,0 +1,13 @@
+services:
+  shortsengine:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file: .env
+    environment:
+      SHORTS_DATA_DIR: /data
+    volumes:
+      - ./data:/data
+      # mount your OAuth client file read-only and point YOUTUBE_CLIENT_SECRETS at /secrets/client_secret.json
+      - ./secrets:/secrets:ro
+    restart: unless-stopped

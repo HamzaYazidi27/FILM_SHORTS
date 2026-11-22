@@ -143,3 +143,12 @@ def test_analytics_learning_is_shrunk_and_capped():
     assert all(abs(v) <= analytics.CAP for v in s["themes"].values())
     assert "greed_honesty" not in s["themes"]  # n=1 never changes the strategy
     assert db.kv_get("strategy")["n_videos"] == 5
+
+
+def test_schema_validation_and_coercion():
+    from shortsengine.providers.llm import coerce, schema_errors
+    sch = {"type": "object", "required": ["a", "b"], "properties": {
+        "a": {"type": "number"}, "b": {"type": "array", "items": {"type": "string", "enum": ["x", "y"]}}}}
+    assert schema_errors(coerce({"a": "0.5", "b": ["x"]}, sch), sch) == []
+    errs = schema_errors({"b": ["z"]}, sch)
+    assert "$.a is required" in errs and any("one of" in e for e in errs)

@@ -64,6 +64,50 @@ def extract_json(text: str) -> Any:
     raise LLMError("unterminated JSON in model output")
 
 
+def schema_errors(obj: Any, schema: dict, path: str = "$") -> list[str]:
+    """Minimal JSON-Schema check (type, required, enum, items) used for providers that do not
+    enforce structured output server-side."""
+    errs: list[str] = []
+    t = schema.get("type")
+    types = {"object": dict, "array": list, "string": str, "integer": int, "number": (int, float), "boolean": bool}
+    if t and not isinstance(obj, types[t]) or (t in ("integer", "number") and isinstance(obj, bool)):
+        return [f"{path} must be {t}"]
+    if "enum" in schema and obj not in schema["enum"]:
+        errs.append(f"{path} must be one of {schema['enum']}")
+    if t == "object":
+        for k in schema.get("required", []):
+            if k not in obj:
+                errs.append(f"{path}.{k} is required")
+        for k, sub in schema.get("properties", {}).items():
+            if k in obj:
+                errs += schema_errors(obj[k], sub, f"{path}.{k}")
+    elif t == "array" and "items" in schema:
+        for i, it in enumerate(obj):
+            errs += schema_errors(it, schema["items"], f"{path}[{i}]")
+    return errs
+
+
+def coerce(obj: Any, schema: dict) -> Any:
+    """Fix harmless type slips (e.g. "0.8" for a number, 34.0 for an integer) before validation."""
+    t = schema.get("type")
+    try:
+        if t == "number" and isinstance(obj, str):
+            return float(obj)
+        if t == "integer" and isinstance(obj, (str, float)) and not isinstance(obj, bool):
+            return int(float(obj))
+        if t == "boolean" and isinstance(obj, str):
+            return obj.strip().lower() == "true"
+        if t == "string" and obj is None:
+            return ""
+    except ValueError:
+        return obj
+    if t == "object" and isinstance(obj, dict):
+        return {k: coerce(v, schema.get("properties", {}).get(k, {})) for k, v in obj.items()}
+    if t == "array" and isinstance(obj, list):
+        return [coerce(v, schema.get("items", {})) for v in obj]
+    return obj
+
+
 class BaseLLM:
     name = "base"
     model = ""
@@ -76,7 +120,10 @@ class BaseLLM:
         for attempt in range(retries + 1):
             text = self._complete(system, msg, schema, job_id=job_id, stage=stage, max_tokens=max_tokens)
             try:
-                obj = extract_json(text)
+                obj = coerce(extract_json(text), schema)
+                errs = schema_errors(obj, schema)
+                if errs:
+                    raise ValueError("schema violations: " + "; ".join(errs[:10]))
                 if validate:
                     validate(obj)
                 return obj
