@@ -155,7 +155,8 @@ def run(job_id: int, script: dict, storyboard: dict, tl: dict, render_meta: dict
     has_value = fc.get("claim_id") in vids and any(o["kind"] == "fact_card" for o in render_meta["overlays"])
     add("original_value", "creative", has_value or not st.automation.require_fact_anchor,
         "verified real-world fact shown with source" if has_value else "no sourced fact card", "script", "major")
-    errs = [e for e in validate_script(script, dna, research, st.voice.words_per_minute) if "claim" in e or "number" in e]
+    from .voice import effective_wpm
+    errs = [e for e in validate_script(script, dna, research, effective_wpm()) if "claim" in e or "number" in e]
     add("facts_supported", "creative", not errs, "; ".join(errs[:3]) or "all factual lines cite verified claims",
         "script", "critical")
     # ---------------- originality & rights

@@ -107,6 +107,27 @@ def render_dialogue(tl: dict, total: float, path: Path) -> None:
     write_wav(path, buf[: int(total * SR)])
 
 
+def calibrate(script: dict, synth: list[dict]) -> float:
+    """Measure the provider's real speaking rate (words/min of speech at rate 0) and keep a running
+    average, so future scripts are sized correctly for the voice actually used."""
+    from .. import db
+    words = sum(len(l["text"].split()) for l in script["lines"])
+    speech = sum((s["words"][-1]["end"] - s["words"][0]["start"]) if s["words"] else s["duration"] for s in synth)
+    wpm = words / max(1.0, speech) * 60
+    prov = load_settings().voice.provider
+    prev = db.kv_get(f"tts_wpm:{prov}")
+    val = wpm if prev is None else 0.6 * prev + 0.4 * wpm
+    db.kv_set(f"tts_wpm:{prov}", round(val, 1))
+    return val
+
+
+def effective_wpm() -> int:
+    from .. import db
+    v = load_settings().voice
+    cal = db.kv_get(f"tts_wpm:{v.provider}")
+    return int(cal) if cal else v.words_per_minute
+
+
 def run(script: dict, workdir: Path, job_id: int | None = None) -> dict:
     dna = load_dna()
     vs = load_settings().video
@@ -115,6 +136,7 @@ def run(script: dict, workdir: Path, job_id: int | None = None) -> dict:
         (dna.duration_min, dna.duration_max)
     rate, gap_scale = 0, 1.0
     synth = synth_lines(script, workdir, rate, job_id)
+    calibrate(script, synth)
     tl = layout(script, synth)
     for _ in range(3):
         total = tl["speech_end"] + end_hold

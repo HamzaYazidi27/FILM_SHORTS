@@ -380,7 +380,8 @@ def generate(topic: dict, research: dict, job_id: int | None = None, feedback: s
     beat proportions. Works with large hosted models and small local models alike."""
     dna = load_dna()
     st = load_settings()
-    wpm = st.voice.words_per_minute
+    from .voice import effective_wpm
+    wpm = effective_wpm()   # calibrated from the real TTS when available
     prev = previous_scripts(10)
     ck = json.loads(checkpoint.read_text()) if checkpoint and checkpoint.exists() else {}
     if ck.get("feedback") != feedback:

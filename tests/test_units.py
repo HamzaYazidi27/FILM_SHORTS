@@ -164,3 +164,11 @@ def test_salvage_truncated_json_keeps_complete_items():
     from shortsengine.providers.llm import salvage_truncated_json
     out = salvage_truncated_json('{"lines": [{"t": "a, b}"}, {"t": "c"}, {"t": "unfinish')
     assert out == {"lines": [{"t": "a, b}"}, {"t": "c"}]}
+
+
+def test_tts_rate_calibration_feeds_script_sizing():
+    from shortsengine.modules import voice
+    script = {"lines": [{"text": "one two three four five six seven eight nine ten"}]}
+    synth = [{"words": [{"start": 0.0, "end": 0.1}, {"start": 4.9, "end": 5.0}], "duration": 5.2}]
+    assert round(voice.calibrate(script, synth)) == 120
+    assert voice.effective_wpm() == 120
