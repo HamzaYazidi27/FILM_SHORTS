@@ -1,0 +1,13 @@
+# third-party reference media (regenerable with research/tools; not redistributed)
+research/raw/storyboards/
+research/raw/comments/
+# runtime data
+data/
+!data/.gitkeep
+*.pyc
+__pycache__/
+.venv/
+.env
+.pytest_cache/
+client_secret*.json
+token*.json

@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "generated_from": {
+    "channel": "Yah Kah (@Yah1231)",
+    "channel_id": "UCdckSUJdfMDWK3pIXooYQmA",
+    "snapshot_utc": "2026-11-22T01:50:00Z",
+    "videos_analysed": 91,
+    "evidence_files": [
+      "research/video_dataset.csv",
+      "research/frame_metrics.json",
+      "research/annotations.json",
+      "research/performance_summary.json"
+    ],
+    "limitations": [
+      "Video/audio streams were not downloadable from this environment (YouTube bot-check + PO-token gating); visual metrics come from YouTube storyboard frames (180px cells, one sample every ~1.96 s in Era B, ~0.99 s in Era A).",
+      "Cut frequency is therefore a LOWER bound; camera motion inside a shot is not measurable.",
+      "Transcripts were not retrievable (timedtext endpoint returned empty bodies); dialogue evidence comes from burned-in captions visible in storyboard frames.",
+      "Audio characteristics are inferred from description credits and visible captions, not measured."
+    ]
+  },
+  "active_format": "moral_reversal_drama",
+  "formats": {
+    "moral_reversal_drama": {
+      "evidence_era": "B_moral_drama (2026-10-12 .. 2026-11-21, n=41)",
+      "why_selected": "Era B median views 330,570 vs 26,852 for Era A (12.3x); median views/day 27,289 vs 230 (119x); like rate 2.93% vs 1.59%. The channel itself abandoned Era A after 2026-10-05.",
+      "confidence": "high",
+      "language": "en",
+      "duration_s": {"target": 172, "min": 155, "max": 178, "observed_median": 175, "observed_p10_p90": [163, 177], "consistency": "consistent (37/41 in 160-178 s)"},
+      "cadence": {"uploads_per_day": 1.0, "publish_hour_utc_window": [10, 12], "observed": "36/41 uploads between 10:00 and 12:59 UTC, one per day, all weekdays"},
+      "title": {
+        "pattern": "\"{moral}\"☠️🔥 #Trending #Shorts",
+        "moral_words": {"median": 8, "min": 4, "max": 15},
+        "grammar_preference": ["general_maxim", "question", "narrative_teaser", "imperative"],
+        "grammar_evidence": "age-adjusted log-view residual medians: general_maxim +0.28 (n=19), question +0.72 (n=1), narrative_teaser -0.31 (n=11), imperative -0.39 (n=10)",
+        "confidence": "low-medium (small groups, overlapping distributions)"
+      },
+      "description": {
+        "observed_template": "editor credit + software + music track credit + fair-use disclaimer + ~29 edit hashtags",
+        "engine_policy": "Do NOT copy the fair-use disclaimer or edit-hashtags (they describe reused footage). Generate an honest description: one-line story summary, 'Original fictional dramatization' notice, sources for any factual payoff, AI-disclosure, 3-5 relevant hashtags."
+      },
+      "narrative": {
+        "structure": [
+          {"beat": "cold_open_conflict", "start_pct": 0.0, "end_pct": 0.04, "notes": "First frame is mid-scene with >=2 characters already in tension; POV title bar on screen 0-~6 s"},
+          {"beat": "setup", "start_pct": 0.04, "end_pct": 0.25, "notes": "Who is the underdog, who is the antagonist, the setting; dialogue only, no narrator"},
+          {"beat": "escalation", "start_pct": 0.25, "end_pct": 0.6, "notes": "Antagonist humiliates/accuses/judges the underdog; bystanders react"},
+          {"beat": "authority_or_turn", "start_pct": 0.6, "end_pct": 0.78, "notes": "A manager/police/owner/third party arrives; wider group shots"},
+          {"beat": "reveal", "start_pct": 0.75, "end_pct": 0.9, "notes": "Twist: hidden identity/status/evidence (e.g. 'This is your wallet' at 75%, 'I'm your new boss' at 90%)"},
+          {"beat": "comeuppance_and_moral", "start_pct": 0.88, "end_pct": 1.0, "notes": "Antagonist faces consequence; final reaction close-up; no spoken CTA observed"}
+        ],
+        "voice_mode": "multi_character_dialogue",
+        "narrator": false,
+        "reveal_position_pct": {"observed": [0.75, 0.9], "target": 0.82},
+        "cta": "none observed in frames",
+        "themes_ranked_by_evidence": [
+          {"theme": "parenting_family", "n": 2, "age_adj_median": 1.41},
+          {"theme": "kindness_goodwill", "n": 6, "age_adj_median": 0.84},
+          {"theme": "greed_honesty", "n": 2, "age_adj_median": 0.76},
+          {"theme": "respect_authority", "n": 6, "age_adj_median": 0.0},
+          {"theme": "character_motivation", "n": 3, "age_adj_median": -0.13},
+          {"theme": "bullying_disability", "n": 2, "age_adj_median": -0.3},
+          {"theme": "prejudice_appearance", "n": 10, "age_adj_median": -0.18},
+          {"theme": "quick_thinking_survival", "n": 2, "age_adj_median": -0.54},
+          {"theme": "slander_false_accusation", "n": 2, "age_adj_median": -0.64},
+          {"theme": "entitlement_boundaries", "n": 5, "age_adj_median": -1.23}
+        ],
+        "most_frequent_theme": "prejudice_appearance (10/41) - most frequent and contains the top video (25.6M), but median slightly below era median after age adjustment",
+        "settings_ranked_by_evidence": [
+          {"setting": "airplane", "n": 7, "age_adj_median": 1.02},
+          {"setting": "retail_store", "n": 6, "age_adj_median": 0.31},
+          {"setting": "street", "n": 4, "age_adj_median": 0.17},
+          {"setting": "event_venue", "n": 3, "age_adj_median": -0.38},
+          {"setting": "restaurant", "n": 4, "age_adj_median": -0.64},
+          {"setting": "jewelry_store", "n": 2, "age_adj_median": -0.88}
+        ],
+        "confidence": "medium (structure seen consistently in sampled timelines; per-theme effects low confidence)"
+      },
+      "visual": {
+        "aspect": "9:16 full-frame (no letterbox), subjects centred, faces in upper-middle third",
+        "opening_shot": {"preferred": "medium_two_shot", "avoid": "insert_detail", "evidence": "medium_two_shot +0.43 (n=14), medium_group +0.28 (n=5) vs insert_detail -1.90 (n=6)"},
+        "shot_mix": {"closeup_single": 0.55, "medium_single": 0.2, "medium_two_shot": 0.12, "wide_group": 0.08, "insert": 0.05},
+        "shot_mix_evidence": "manual reading of full timelines of 4-WzLJxiPJk and TTqUFtjdBLE: predominantly single-person close-ups in shot/reverse-shot, wide group shots cluster in the authority/reveal beats",
+        "mean_shot_s": {"target": 2.6, "observed_upper_bound": 2.69, "changes_per_min_lower_bound": 22.3},
+        "ending_shot": {"preferred": "closeup_reaction", "observed": "33/41 close-up reaction, 4/41 fade to black, 4/41 medium"},
+        "grade": {
+          "mean_luma": 0.603, "mean_saturation": 0.279, "warmth_r_minus_b": 18.3, "colourfulness": 50.3, "contrast_std": 54.3,
+          "look": "bright, high-clarity 'HDR' look, warm skin with teal/cyan shadows, soft glow"
+        },
+        "title_bar": {"present_ratio": 1.0, "duration_s": [4.0, 6.0], "text": "POV: {moral}", "style": "white full-width strip at very top (~7% of height), black condensed bold uppercase, 1-2 lines"},
+        "watermark": {"observed": "small channel handle bottom-centre (~92% height)", "engine_policy": "use own configurable brand handle or none; never the reference handle"},
+        "black_frames": "only intentional fade-to-black at the end (1/41 had dark frames mid-video)"
+      },
+      "captions": {
+        "type": "dialogue",
+        "present_frame_ratio": 0.596,
+        "y_center_pct": 0.47,
+        "words_per_chunk": [1, 4],
+        "lines": 2,
+        "case": "upper",
+        "style": "bold condensed sans, line 1 smaller, line 2 (keyword) larger; strong coloured glow; colour rotates per line among yellow/green/magenta/blue/orange",
+        "palette": ["#FFE14D", "#4CFF6A", "#FF4DF0", "#4DB8FF", "#FFA64D"],
+        "evidence": "storyboard frames of c8n65RTCZz8, 4-WzLJxiPJk, TTqUFtjdBLE; caption_frame_ratio median 0.596 across 41 Era B videos; weak positive Spearman with age-adjusted performance (0.195)",
+        "confidence": "high for style/position, low for performance effect"
+      },
+      "transitions": {"default": "hard_cut", "accent": ["flash_white", "cross_dissolve"], "accent_at": ["reveal"], "evidence": "blended double-exposure frame at the reveal in TTqUFtjdBLE (146 s); otherwise hard cuts"},
+      "audio": {
+        "dialogue": "character dialogue carries the whole story (no narrator)",
+        "music": "single recurring dark/cloud-rap/phonk-style bed credited in all 41 Era B descriptions ('I'm god'); edit hashtags #PhonkEdit #DarkEdit",
+        "music_policy": "use original or licensed music only; ducked under dialogue",
+        "measured": false,
+        "confidence": "low (audio streams inaccessible)"
+      }
+    },
+    "narrated_recap": {
+      "evidence_era": "A_movie_recap (2026-07-08 .. 2026-10-05, n=50)",
+      "status": "secondary / not recommended (12x lower median views)",
+      "duration_s": {"target": 72, "min": 60, "max": 115, "observed_median": 72.5},
+      "title": {"pattern": "Tell the story of \"{work}\" #movie #foryou #edit #funny"},
+      "narrative": {"voice_mode": "single_narrator", "narrator": true},
+      "visual": {"mean_shot_s": {"target": 1.7, "observed_upper_bound": 1.69, "changes_per_min_lower_bound": 35.5},
+                 "grade": {"mean_luma": 0.438, "mean_saturation": 0.259, "warmth_r_minus_b": 10.2, "colourfulness": 28.7},
+                 "title_bar": {"present_ratio": 0.06}},
+      "captions": {"type": "narration", "present_frame_ratio": 0.254, "y_center_pct": 0.77, "words_per_chunk": [1, 1], "style": "single white bold lowercase/uppercase word, no glow"},
+      "engine_policy": "Only for original/public-domain stories; never recap copyrighted films."
+    }
+  },
+  "originality_policy": {
+    "reference_channel_uses_third_party_footage": true,
+    "evidence": "Era B descriptions state: 'This video contains copyrighted content, including images, video, and music owned by their respective creators'; early Era B titles name TV series (Tacoma FD, Kim's Convenience, Grey's Anatomy, Law & Order SVU).",
+    "engine_rules": [
+      "Reproduce only abstract structure, pacing, caption and grade characteristics.",
+      "All stories, dialogue, characters and visuals are original; no clips, frames, audio or scripts from the reference channel or the works it uses.",
+      "Every factual payoff (law, policy, statistic) must cite a source; stories are labelled as fictional dramatizations.",
+      "No imitation of the reference creator's voice, handle, watermark or branding."
+    ]
+  }
+}
