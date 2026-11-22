@@ -109,6 +109,37 @@ def coerce(obj: Any, schema: dict) -> Any:
     return obj
 
 
+def salvage_truncated_json(text: str) -> Any:
+    """Recover the longest valid prefix of a truncated JSON document by cutting after the last
+    complete value and closing the open brackets (e.g. keep 9 complete dialogue lines of 10)."""
+    t = text[text.find("{"):] if "{" in text else text
+    stack, in_str, esc, cuts = [], False, False, []
+    for i, c in enumerate(t):
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+        elif c in "{[":
+            stack.append(c)
+        elif c in "}]":
+            if stack:
+                stack.pop()
+            cuts.append((i + 1, list(stack)))
+    for pos, st in reversed(cuts):
+        closer = "".join("}" if b == "{" else "]" for b in reversed(st))
+        try:
+            return json.loads(t[:pos] + closer)
+        except json.JSONDecodeError:
+            continue
+    raise LLMError("could not salvage truncated JSON")
+
+
 class BaseLLM:
     name = "base"
     model = ""
@@ -121,7 +152,12 @@ class BaseLLM:
         for attempt in range(retries + 1):
             text = self._complete(system, msg, schema, job_id=job_id, stage=stage, max_tokens=max_tokens)
             try:
-                obj = coerce(extract_json(text), schema)
+                try:
+                    raw = extract_json(text)
+                except (LLMError, json.JSONDecodeError):
+                    raw = salvage_truncated_json(text)
+                    log.warning("salvaged truncated JSON output", extra={"job_id": job_id, "stage": stage})
+                obj = coerce(raw, schema)
                 errs = schema_errors(obj, schema)
                 if errs:
                     raise ValueError("schema violations: " + "; ".join(errs[:10]))
@@ -239,6 +275,8 @@ class OpenAICompatLLM(BaseLLM):
                 d = r.json()
                 text = d["choices"][0]["message"].get("content") or ""
                 if d["choices"][0].get("finish_reason") == "length":
+                    if text.strip().startswith(("{", "[", "```")) and len(text) > 200:
+                        return text  # truncated JSON: complete_json salvages the complete part
                     last = "output truncated (finish_reason=length)"
                     body["max_tokens"] = int(body["max_tokens"] * 1.5)
                     continue

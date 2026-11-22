@@ -158,3 +158,9 @@ def test_factual_numbers_only_flags_fact_like_specifics():
     from shortsengine.textutil import factual_numbers
     assert factual_numbers("Seat 3, gate 12, two minutes") == set()
     assert factual_numbers("It was passed in 1986 and costs $40 or 15%") == {"1986", "40", "15"}
+
+
+def test_salvage_truncated_json_keeps_complete_items():
+    from shortsengine.providers.llm import salvage_truncated_json
+    out = salvage_truncated_json('{"lines": [{"t": "a, b}"}, {"t": "c"}, {"t": "unfinish')
+    assert out == {"lines": [{"t": "a, b}"}, {"t": "c"}]}
