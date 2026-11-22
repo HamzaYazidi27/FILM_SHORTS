@@ -398,6 +398,8 @@ def generate(topic: dict, research: dict, job_id: int | None = None, feedback: s
         share = b.end_pct - b.start_pct
         if b.name not in done:
             done[b.name] = _beat_lines(plan, b, max(6, round(total_words * share)), lines, research, dna, topic, job_id, "")
+            log.info("script beat %s: %d lines, %d words", b.name, len(done[b.name]),
+                     sum(len(l["text"].split()) for l in done[b.name]), extra={"job_id": job_id, "stage": "script"})
             if checkpoint:
                 checkpoint.write_text(json.dumps(ck))
         lines += done[b.name]

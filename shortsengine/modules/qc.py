@@ -107,7 +107,10 @@ def run(job_id: int, script: dict, storyboard: dict, tl: dict, render_meta: dict
         "edit", "critical")
     # ---------------- creative
     first = shots[0]
-    add("opening_shot", "creative", first["framing"] == "two" or (dna.opening_shot not in ("medium_two_shot",)),
+    framing_of = {"medium_two_shot": "two", "medium_group": "wide", "wide_establishing": "wide",
+                  "closeup_single": "cu", "medium_single": "medium", "insert_detail": "insert"}
+    add("opening_shot", "creative", first["framing"] == framing_of.get(dna.opening_shot, first["framing"])
+        and first["framing"] != framing_of.get(dna.avoid_opening),
         f"first shot framing '{first['framing']}' (DNA prefers {dna.opening_shot}, avoid {dna.avoid_opening})",
         "storyboard", "major")
     tb = [o for o in render_meta["overlays"] if o["kind"] == "title_bar"]
