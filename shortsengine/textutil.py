@@ -68,8 +68,8 @@ def is_speculative(s: str) -> bool:
 
 
 def factual_numbers(s: str) -> set[str]:
-    """Numbers that look like factual specifics (years, amounts, percentages, >= 3 digits).
-    Everyday small numbers ('seat 3', 'two minutes') are not treated as claims."""
+    """Numbers that look like factual specifics (years, amounts, percentages, >= 1000, decimals).
+    Everyday numbers ('seat 3', 'call 911', 'flight 237') are not treated as claims."""
     out = set()
     for m in re.finditer(r"([$£€]\s?)?(\d[\d,]*(?:\.\d+)?)\s?(%|percent|million|billion|thousand)?", s, re.I):
         n = m.group(2).replace(",", "")
@@ -77,6 +77,6 @@ def factual_numbers(s: str) -> set[str]:
             val = float(n)
         except ValueError:
             continue
-        if m.group(1) or m.group(3) or val >= 100 or "." in n:
+        if m.group(1) or m.group(3) or val >= 1000 or "." in n:   # years, big numbers, money, percentages
             out.add(n)
     return out

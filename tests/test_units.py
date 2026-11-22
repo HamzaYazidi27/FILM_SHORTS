@@ -156,7 +156,7 @@ def test_schema_validation_and_coercion():
 
 def test_factual_numbers_only_flags_fact_like_specifics():
     from shortsengine.textutil import factual_numbers
-    assert factual_numbers("Seat 3, gate 12, two minutes") == set()
+    assert factual_numbers("Seat 3, gate 12, call 911, two minutes") == set()
     assert factual_numbers("It was passed in 1986 and costs $40 or 15%") == {"1986", "40", "15"}
 
 

@@ -300,7 +300,8 @@ Rules:
             l["speaker"] = alias.get(str(l.get("speaker", "")).lower().strip(), l.get("speaker"))
             ad = str(l.get("addressee", "")).lower().strip()
             l["addressee"] = alias.get(ad, "") if ad else ""
-            l["text"] = re.sub(r"\s+", " ", l.get("text", "")).strip()
+            t = re.sub(r"\*[^*]{1,60}\*|\([^)]{1,60}\)|\[[^\]]{1,60}\]", " ", l.get("text", ""))  # stage directions
+            l["text"] = re.sub(r"\s+", " ", t).strip()
             if l.get("emotion") not in EMOTIONS:
                 l["emotion"] = "neutral"
         return [l for l in ls if l["text"]]

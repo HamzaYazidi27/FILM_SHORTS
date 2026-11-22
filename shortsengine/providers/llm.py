@@ -150,7 +150,15 @@ class BaseLLM:
         last_err = None
         msg = user
         for attempt in range(retries + 1):
-            text = self._complete(system, msg, schema, job_id=job_id, stage=stage, max_tokens=max_tokens)
+            try:
+                text = self._complete(system, msg, schema, job_id=job_id, stage=stage, max_tokens=max_tokens)
+            except LLMError as e:
+                if "truncated" not in str(e) and "empty" not in str(e):
+                    raise
+                last_err = e   # degenerate output: retry from the original prompt
+                msg = user
+                log.warning("LLM call failed (attempt %d): %s", attempt + 1, e, extra={"job_id": job_id, "stage": stage})
+                continue
             try:
                 try:
                     raw = extract_json(text)
@@ -250,7 +258,10 @@ class OpenAICompatLLM(BaseLLM):
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         last = None
+        truncations = 0
         for attempt in range(8):
+            if truncations >= 2:
+                break
             wait = self._last + self.min_interval_s - time.time()
             if wait > 0:
                 time.sleep(wait)
@@ -278,6 +289,7 @@ class OpenAICompatLLM(BaseLLM):
                     if text.strip().startswith(("{", "[", "```")) and len(text) > 200:
                         return text  # truncated JSON: complete_json salvages the complete part
                     last = "output truncated (finish_reason=length)"
+                    truncations += 1
                     body["max_tokens"] = int(body["max_tokens"] * 1.5)
                     continue
                 u = d.get("usage") or {}
