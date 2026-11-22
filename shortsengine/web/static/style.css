@@ -59,3 +59,4 @@ video { width: 100%; border-radius: 8px; background: #000; aspect-ratio: 9/16; }
   body { flex-direction: column; } #nav { width: 100%; height: auto; position: static; }
   nav { display: flex; flex-wrap: wrap; gap: 4px; } main { padding: 16px; }
 }
+.card input:not([type=checkbox]), .card select { width: 100%; max-width: 100%; }
