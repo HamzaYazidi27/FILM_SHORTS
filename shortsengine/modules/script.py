@@ -366,6 +366,13 @@ Rules:
             if sum(len(x["text"].split()) for x in lines) + len(l["text"].split()) > hi_w:
                 break
             lines.append(l)
+    # deterministic trim when the model overshoots its word budget (keeps reveal and fact lines)
+    while sum(len(l["text"].split()) for l in lines) > words * 1.15 and len(lines) > 2:
+        drop = next((i for i in range(len(lines) - 2, 0, -1)
+                     if not lines[i]["is_reveal"] and not lines[i].get("claim_id")), None)
+        if drop is None:
+            break
+        lines.pop(drop)
     errs = check(lines, need_words=True)
     if errs:
         raise ScriptRejected(f"beat {beat.name}: " + "; ".join(errs[:6]))
