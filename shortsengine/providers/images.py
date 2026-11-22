@@ -1,5 +1,7 @@
 """Image generation adapters. Every result carries license metadata for the asset registry.
 
+* MfluxImages       - FLUX.1-schnell (Apache-2.0) run locally on Apple Silicon via MLX (default)
+* A1111Images        - any local Automatic1111-compatible HTTP API (Draw Things, Forge, SD.Next)
 * PollinationsImages - hosted FLUX-class generation (keyless free tier is rate-limited and
                        stamps a small corner logo, which the adapter crops away)
 * OpenAIImages       - OpenAI Images API (needs OPENAI_API_KEY)
@@ -15,6 +17,7 @@ import random
 import time
 import urllib.parse
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 from PIL import Image, ImageDraw, ImageFilter
@@ -37,6 +40,61 @@ class ImageResult:
 
 class ImageError(RuntimeError):
     pass
+
+
+class MfluxImages:
+    """Local FLUX.1-schnell through the `mflux` CLI (pip install mflux; macOS Apple Silicon).
+    First use downloads the model weights from Hugging Face once; afterwards fully offline."""
+    name = "mflux"
+
+    def __init__(self, model: str = "schnell", quantize: int = 4, steps: int = 4, model_path: str = ""):
+        import shutil
+        self.bin = shutil.which("mflux-generate")
+        if not self.bin:
+            raise ImageError("mflux not installed (macOS Apple Silicon): pip install mflux")
+        self.model, self.quantize, self.steps, self.model_path = model, quantize, steps, model_path
+
+    def generate(self, prompt: str, width: int, height: int, seed: int) -> ImageResult:
+        import subprocess
+        import tempfile
+        w, h = (576, 1024) if width < height else (1024, 576)
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "img.png"
+            cmd = [self.bin, "--model", self.model, "--prompt", prompt[:1500], "--steps", str(self.steps),
+                   "--seed", str(seed), "--width", str(w), "--height", str(h), "--output", str(out)]
+            if self.model_path:
+                cmd += ["--path", self.model_path]
+            else:
+                cmd += ["--quantize", str(self.quantize)]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+            if r.returncode != 0 or not out.exists():
+                raise ImageError(f"mflux failed: {(r.stderr or r.stdout)[-400:]}")
+            im = Image.open(out).convert("RGB")
+        return ImageResult(im, "mflux:flux1-" + self.model, "AI-generated (FLUX.1-schnell, Apache-2.0, local)",
+                           "https://huggingface.co/black-forest-labs/FLUX.1-schnell",
+                           "Original local AI output; Apache-2.0 model weights")
+
+
+class A1111Images:
+    """Local Stable-Diffusion-style server with the Automatic1111 txt2img API
+    (Draw Things 'HTTP API server', Forge, SD.Next). License depends on the model the user loads."""
+    name = "a1111"
+
+    def __init__(self, base_url: str, steps: int, license_text: str):
+        self.base_url, self.steps, self.license_text = base_url.rstrip("/"), steps, license_text
+
+    def generate(self, prompt: str, width: int, height: int, seed: int) -> ImageResult:
+        w, h = (576, 1024) if width < height else (1024, 576)
+        try:
+            r = httpx.post(f"{self.base_url}/sdapi/v1/txt2img", timeout=1800, json={
+                "prompt": prompt, "negative_prompt": "text, watermark, logo, deformed hands, extra fingers, blurry",
+                "width": w, "height": h, "steps": self.steps, "seed": seed, "cfg_scale": 2.0, "batch_size": 1})
+        except httpx.HTTPError as e:
+            raise ImageError(f"local image server not reachable at {self.base_url}: {e}") from e
+        if r.status_code != 200:
+            raise ImageError(f"a1111 HTTP {r.status_code}: {r.text[:200]}")
+        im = Image.open(io.BytesIO(base64.b64decode(r.json()["images"][0]))).convert("RGB")
+        return ImageResult(im, "a1111:local", self.license_text, "", "Depends on the locally loaded model's license")
 
 
 class PollinationsImages:
@@ -152,6 +210,10 @@ class ProceduralImages:
 def get_image_provider(kind: str | None = None):
     p = load_settings().providers
     kind = kind or p.image
+    if kind == "mflux":
+        return MfluxImages(p.mflux_model, p.mflux_quantize, p.mflux_steps, p.mflux_model_path)
+    if kind == "a1111":
+        return A1111Images(p.a1111_base_url, p.a1111_steps, p.local_image_license)
     if kind == "pollinations":
         return PollinationsImages(p.image_model)
     if kind == "openai":

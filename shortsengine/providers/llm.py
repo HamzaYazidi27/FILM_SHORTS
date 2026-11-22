@@ -3,6 +3,7 @@
 * AnthropicLLM      - Claude via the official `anthropic` SDK (default; needs ANTHROPIC_API_KEY)
 * OpenAICompatLLM   - any OpenAI-compatible /chat/completions endpoint (Ollama/LM Studio on
                       macOS Apple Silicon, vLLM, hosted gateways)
+* OllamaLLM         - fully local models via Ollama (default; Apple Silicon friendly)
 * PollinationsLLM   - keyless hosted OpenAI-compatible endpoint (text.pollinations.ai); used
                       as a development fallback when no key is configured
 
@@ -254,6 +255,61 @@ class OpenAICompatLLM(BaseLLM):
         raise LLMError(f"{self.name} failed: {last}")
 
 
+class OllamaLLM(BaseLLM):
+    """Local LLM through Ollama's native API. `format` carries the JSON schema, so the model is
+    grammar-constrained to valid JSON (reliable even for 7-14B models). No API key, no cloud."""
+    name = "ollama"
+
+    def __init__(self, base_url: str = "http://localhost:11434", model: str = "qwen2.5:14b", num_ctx: int = 16384):
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.num_ctx = num_ctx
+
+    def check(self) -> dict:
+        try:
+            r = httpx.get(f"{self.base_url}/api/tags", timeout=5)
+            names = [m["name"] for m in r.json().get("models", [])]
+        except httpx.HTTPError as e:
+            raise LLMError(f"Ollama is not reachable at {self.base_url} ({e}). Start the Ollama app or run "
+                           f"`ollama serve`.") from e
+        if not any(n == self.model or n.split(":")[0] == self.model or n == f"{self.model}:latest" for n in names):
+            raise LLMError(f"Ollama model '{self.model}' is not installed. Run: ollama pull {self.model} "
+                           f"(installed: {names[:8]})")
+        return {"ok": True, "models": names}
+
+    def _complete(self, system, user, schema, *, job_id=None, stage=None, max_tokens=16000) -> str:
+        body = {"model": self.model, "stream": False, "format": schema, "think": False,
+                "messages": [{"role": "system", "content": system + "\nReply with JSON matching the schema."},
+                             {"role": "user", "content": user}],
+                "options": {"num_ctx": self.num_ctx, "num_predict": min(max_tokens, 8192), "temperature": 0.7}}
+        last = None
+        for attempt in range(3):
+            try:
+                r = httpx.post(f"{self.base_url}/api/chat", json=body, timeout=httpx.Timeout(1800, connect=10))
+                if r.status_code == 400 and "think" in r.text:   # model without thinking support
+                    body.pop("think", None)
+                    continue
+                if r.status_code == 404:
+                    raise LLMError(f"Ollama model '{self.model}' not found. Run: ollama pull {self.model}")
+                if r.status_code >= 400:
+                    last = f"HTTP {r.status_code}: {r.text[:200]}"
+                    time.sleep(3 * (attempt + 1))
+                    continue
+                d = r.json()
+                costs.record("ollama", "llm", (d.get("prompt_eval_count") or 0) + (d.get("eval_count") or 0), "tokens",
+                             0.0, job_id, stage, {"model": self.model, "seconds": round((d.get("total_duration") or 0) / 1e9, 1)})
+                if d.get("done_reason") == "length":
+                    last = "output truncated (num_predict)"
+                    body["options"]["num_predict"] = min(16384, body["options"]["num_predict"] * 2)
+                    continue
+                return d.get("message", {}).get("content", "")
+            except httpx.ConnectError as e:
+                raise LLMError(f"Ollama is not running at {self.base_url}: start the Ollama app or `ollama serve`") from e
+            except httpx.HTTPError as e:
+                last = str(e)
+        raise LLMError(f"ollama failed: {last}")
+
+
 @functools.lru_cache(maxsize=1)
 def PollinationsLLM() -> OpenAICompatLLM:
     return OpenAICompatLLM("https://text.pollinations.ai/openai", "openai", secret("POLLINATIONS_API_KEY"),
@@ -290,6 +346,8 @@ def _build(kind: str) -> BaseLLM | None:
         return OpenAICompatLLM(p.openai_compatible_base_url, p.openai_compatible_model, secret("OPENAI_COMPATIBLE_API_KEY"))
     if kind == "pollinations":
         return PollinationsLLM()
+    if kind == "ollama":
+        return OllamaLLM(p.ollama_base_url, p.ollama_model, p.ollama_num_ctx)
     return None
 
 

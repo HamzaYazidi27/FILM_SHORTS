@@ -78,8 +78,10 @@ shortsengine/
     metadata.py     title/description/tags with sources and AI/fiction disclosure
     publish.py      YouTube Data API v3 OAuth upload (private by default, scheduling, synthetic-media flag)
     analytics.py    stats + retention → age-adjusted, shrunk, capped strategy updates; exploration suggestions
-  providers/        llm.py (Claude / OpenAI-compatible e.g. Ollama / Pollinations) · images.py (Pollinations /
-                    OpenAI / procedural) · tts.py (Edge / ElevenLabs / OpenAI / espeak) · wikipedia.py
+  providers/        llm.py (Ollama / Claude / OpenAI-compatible / Pollinations) · images.py (mflux / A1111 /
+                    Pollinations / OpenAI / procedural) · tts.py (Kokoro / Edge / ElevenLabs / OpenAI / espeak)
+                    · wikipedia.py
+  doctor.py         machine checks + provider profiles
   web/              FastAPI dashboard (15 sections) + vanilla JS UI
 ```
 
@@ -87,6 +89,33 @@ Data lives in `data/` (or `$SHORTS_DATA_DIR`): `settings.json`, the `shorts.db` 
 automatically), `jobs/<id>/…` and `logs/engine.jsonl`.
 
 ## Installation
+
+### Fully local on a Mac (no API keys) — recommended
+
+The default profile runs everything on your machine. It was designed for an M1/M2/M3 Mac with 16–32 GB RAM.
+
+| Part | Local engine | Size / speed on an M1 Pro, 32 GB (approx.) |
+|---|---|---|
+| LLM | [Ollama](https://ollama.com) `qwen2.5:14b` (alternatives: `gemma3:12b`, `qwen2.5:7b` for 16 GB) | ~9 GB; a script takes a few minutes |
+| Images | FLUX.1-schnell via [`mflux`](https://github.com/filipstrand/mflux) (MLX, Apache-2.0), 4-bit, 4 steps | first run downloads the weights once (large); then ~1 min/image, ~15–20 images per video |
+| Voice | Kokoro-82M via `kokoro-onnx` (Apache-2.0), 50+ voices | ~120 MB; faster than real time |
+| Research | Wikipedia API (internet, no key) | – |
+
+```bash
+bash scripts/setup_mac.sh          # brew deps, .venv, ollama pull, Kokoro, local profile, doctor
+```
+```bash
+source .venv/bin/activate && python -m shortsengine serve
+```
+
+`python -m shortsengine doctor` checks Ollama, the model, mflux, Kokoro, ffmpeg, disk and memory, and prints the
+exact fix for anything missing. Switch presets with `python -m shortsengine profile <name>` or from the dashboard:
+- `local` (default)
+- `local-drawthings`: images from the Draw Things app's HTTP API on port 7860, or Forge/SD.Next
+- `free-cloud`: hosted, no key, rate-limited
+- `claude`: needs `ANTHROPIC_API_KEY`
+
+### Manual install
 
 Requirements: Python ≥ 3.11, FFmpeg 6+ (with libx264).
 
@@ -98,10 +127,10 @@ brew install ffmpeg python@3.12
 python3 -m venv .venv && source .venv/bin/activate
 ```
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[local,dev]"
 ```
 ```bash
-cp .env.example .env   # add ANTHROPIC_API_KEY (and optional keys)
+cp .env.example .env   # optional: only needed for cloud providers / YouTube upload
 ```
 ```bash
 python -m shortsengine init
@@ -146,9 +175,9 @@ videos/day, max/day, run times (UTC), daily and per-video budgets, QC loop limit
 
 | Kind | Options | Notes |
 |---|---|---|
-| LLM | `anthropic` (default, `claude-opus-5-5`, structured JSON output, server-side refusal fallback), `openai_compatible` (Ollama/LM Studio/vLLM/gateways), `pollinations` (keyless dev fallback, 1 reply / 45 s) | costs tracked per token |
-| Images | `pollinations` (FLUX-class), `openai` (gpt-image-1), `procedural` (offline original fallback) | license stored per asset |
-| TTS | `edge` (neural voices, word timings), `elevenlabs` (timestamps), `openai`, `espeak` | stock voices only — no cloning |
+| LLM | `ollama` (default, local), `anthropic` (`claude-opus-5-5`, structured JSON output, server-side refusal fallback), `openai_compatible` (Ollama/LM Studio/vLLM/gateways), `pollinations` (keyless dev fallback, 1 reply / 45 s) | costs tracked per token |
+| Images | `mflux` (default, local FLUX.1-schnell), `a1111` (local Draw Things/Forge), `pollinations`, `openai`, `procedural` (offline fallback) | license stored per asset |
+| TTS | `kokoro` (default, local), `edge` (neural voices, word timings), `elevenlabs` (timestamps), `openai`, `espeak` | stock voices only — no cloning |
 | Research | Wikipedia/Wikimedia API | permanent revision links |
 
 ### YouTube publishing (optional)

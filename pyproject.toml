@@ -23,6 +23,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# fully local, no API keys (Kokoro TTS everywhere; FLUX via MLX on Apple Silicon)
+local = ["kokoro-onnx>=0.4", "soundfile>=0.12", "mflux>=0.9; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 dev = ["pytest>=8", "yt-dlp"]
 
 [project.scripts]

@@ -37,6 +37,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("video", type=int)
     p.add_argument("--privacy", choices=["private", "unlisted", "public"])
     sub.add_parser("analytics", help="fetch YouTube stats and update the strategy")
+    dr = sub.add_parser("doctor", help="check this machine for the selected providers")
+    dr.add_argument("--deep", action="store_true", help="also download missing local model files")
+    pr = sub.add_parser("profile", help="switch provider preset: local | local-drawthings | free-cloud | claude")
+    pr.add_argument("name")
     a = ap.parse_args(argv)
     logs.setup()
     db.connect()
@@ -75,6 +79,12 @@ def main(argv: list[str] | None = None) -> int:
     elif a.cmd == "publish":
         from .modules import publish
         print(json.dumps(publish.upload(a.video, a.privacy), indent=1))
+    elif a.cmd == "doctor":
+        from .doctor import print_report, run_checks
+        return print_report(run_checks(a.deep))
+    elif a.cmd == "profile":
+        from .doctor import apply_profile
+        print(json.dumps(apply_profile(a.name), indent=1))
     elif a.cmd == "analytics":
         from .modules import analytics
         print("snapshots:", analytics.fetch())

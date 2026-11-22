@@ -31,11 +31,14 @@ class DurationOutOfRange(RuntimeError):
 
 def assign_voices(characters: list[dict]) -> dict[str, str]:
     v = load_settings().voice
-    pools = {"male": list(v.male_voices), "female": list(v.female_voices)}
+    if v.provider == "kokoro":
+        pools = {"male": list(v.kokoro_male_voices), "female": list(v.kokoro_female_voices)}
+    else:
+        pools = {"male": list(v.male_voices), "female": list(v.female_voices)}
     out = {}
     for c in characters:
         pool = pools.get(c["gender"]) or pools["male"]
-        out[c["id"]] = pool.pop(0) if pool else (v.male_voices + v.female_voices)[len(out) % 10]
+        out[c["id"]] = pool.pop(0) if pool else (pools["male"] + pools["female"] or ["default"])[0]
     return out
 
 

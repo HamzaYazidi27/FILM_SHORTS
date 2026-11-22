@@ -300,9 +300,23 @@ def create_app(start_worker: bool = True) -> FastAPI:
     def providers():
         p = load_settings().providers
         return {"secrets": secrets_status(), "selected": json.loads(p.model_dump_json()),
-                "available": {"llm": ["anthropic", "openai_compatible", "pollinations"],
-                              "image": ["pollinations", "openai", "procedural"],
-                              "tts": ["edge", "elevenlabs", "openai", "espeak"]}}
+                "available": {"llm": ["ollama", "anthropic", "openai_compatible", "pollinations"],
+                              "image": ["mflux", "a1111", "pollinations", "openai", "procedural"],
+                              "tts": ["kokoro", "edge", "elevenlabs", "openai", "espeak"]},
+                "profiles": sorted(__import__("shortsengine.doctor", fromlist=["PROFILES"]).PROFILES)}
+
+    @app.post("/api/profile")
+    def set_profile(name: str = Body(..., embed=True)):
+        from ..doctor import apply_profile
+        try:
+            return apply_profile(name)
+        except SystemExit as e:
+            raise HTTPException(400, str(e))
+
+    @app.get("/api/doctor")
+    def doctor():
+        from ..doctor import run_checks
+        return run_checks(False)
 
     @app.post("/api/providers/test")
     def test_provider(kind: str = Body(..., embed=True)):

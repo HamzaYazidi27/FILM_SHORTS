@@ -1,5 +1,6 @@
 """Text-to-speech adapters with a common interface returning audio + word timings.
 
+* KokoroTTS      - Kokoro-82M via ONNX, fully local/offline (Apache-2.0), 50+ stock voices (default)
 * EdgeTTS        - Microsoft neural voices via edge-tts, word-boundary timings (no key)
 * ElevenLabsTTS  - ElevenLabs /with-timestamps (needs ELEVENLABS_API_KEY)
 * OpenAITTS      - OpenAI speech API (needs OPENAI_API_KEY); timings estimated
@@ -238,6 +239,81 @@ class EspeakTTS:
         return TTSResult(wav, dur, estimate_words(text, dur), self.name, voice)
 
 
+KOKORO_RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
+
+
+def kokoro_dir() -> Path:
+    from ..config import data_dir
+    d = Path(os.environ.get("KOKORO_MODEL_DIR") or data_dir() / "models" / "kokoro")
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def ensure_kokoro_files(model: str = "kokoro-v1.0.int8.onnx") -> tuple[Path, Path]:
+    """Download the Kokoro model + voices once (public GitHub release, no key) and reuse them offline."""
+    d = kokoro_dir()
+    out = []
+    for name in (model, "voices-v1.0.bin"):
+        f = d / name
+        if not f.exists() or f.stat().st_size < 1_000_000:
+            log.info("downloading %s (one-time)", name)
+            tmp = f.with_suffix(".part")
+            with httpx.stream("GET", KOKORO_RELEASE + name, follow_redirects=True, timeout=600) as r:
+                if r.status_code != 200:
+                    raise TTSError(f"could not download {name}: HTTP {r.status_code}")
+                with tmp.open("wb") as fh:
+                    for chunk in r.iter_bytes(1 << 20):
+                        fh.write(chunk)
+            tmp.replace(f)
+        out.append(f)
+    return out[0], out[1]
+
+
+class KokoroTTS:
+    """Local neural TTS. Speed control via `rate_pct`; pitch is not supported by the model and is ignored.
+    Word timings are estimated inside the trimmed speech span of each (short) line."""
+    name = "kokoro"
+    _engine = None
+    _lock = __import__("threading").Lock()
+
+    def __init__(self):
+        try:
+            import kokoro_onnx  # noqa: F401
+        except ImportError as e:
+            raise TTSError("kokoro-onnx not installed: pip install 'kokoro-onnx' soundfile") from e
+
+    def _get(self):
+        with KokoroTTS._lock:
+            if KokoroTTS._engine is None:
+                from kokoro_onnx import Kokoro
+                from ..config import load_settings
+                m, v = ensure_kokoro_files(load_settings().voice.kokoro_model)
+                KokoroTTS._engine = Kokoro(str(m), str(v))
+            return KokoroTTS._engine
+
+    def synth(self, text, voice, out_dir, stem, rate_pct=0, pitch_hz=0, lexicon=None, job_id=None) -> TTSResult:
+        import numpy as np
+        import soundfile as sf
+        eng = self._get()
+        lang = "en-gb" if voice.startswith("b") else "en-us"
+        with KokoroTTS._lock:  # onnxruntime session is shared; serialise calls
+            audio, sr = eng.create(apply_pronunciations(text, lexicon or {}), voice=voice,
+                                   speed=max(0.6, min(1.6, 1 + rate_pct / 100)), lang=lang)
+        raw = Path(out_dir) / f"{stem}.src.wav"
+        sf.write(str(raw), audio, sr)
+        wav = Path(out_dir) / f"{stem}.wav"
+        dur = to_wav(raw, wav)
+        raw.unlink(missing_ok=True)
+        env = np.abs(audio)
+        thr = max(1e-3, float(env.max()) * 0.04)
+        idx = np.where(env > thr)[0]
+        lead = float(idx[0]) / sr if len(idx) else 0.0
+        tail = float(idx[-1]) / sr if len(idx) else dur
+        words = [Word(w.text, w.start + lead, w.end + lead) for w in estimate_words(text, max(0.2, tail - lead), lead=0.0)]
+        costs.record("kokoro", "tts", len(text), "chars", 0.0, job_id, "voice", {"voice": voice})
+        return TTSResult(wav, dur, words, self.name, voice)
+
+
 _override = None
 
 
@@ -249,4 +325,5 @@ def set_tts(t) -> None:
 def get_tts(kind: str):
     if _override is not None:
         return _override
-    return {"edge": EdgeTTS, "elevenlabs": ElevenLabsTTS, "openai": OpenAITTS, "espeak": EspeakTTS}[kind]()
+    return {"kokoro": KokoroTTS, "edge": EdgeTTS, "elevenlabs": ElevenLabsTTS, "openai": OpenAITTS,
+            "espeak": EspeakTTS}[kind]()

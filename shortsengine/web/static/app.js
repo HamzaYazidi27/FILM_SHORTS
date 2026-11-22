@@ -203,23 +203,36 @@ const views = {
         <label>video.preset</label><input data-path="video.preset" type="text" value="${esc(v.preset)}">${f("video.motion_strength", v.motion_strength)}
         <label>video.brand_handle</label><input data-path="video.brand_handle" type="text" value="${esc(v.brand_handle)}">${b("video.music_enabled", v.music_enabled)}${f("video.music_duck_db", v.music_duck_db)}${b("video.sfx_enabled", v.sfx_enabled)}
         ${f("video.duration_override_s", v.duration_override_s ?? "")}</div>
-      <div class="card"><b>Voice</b><label>voice.provider</label><select data-path="voice.provider">${["edge", "elevenlabs", "openai", "espeak"].map((p) => `<option ${p === vo.provider ? "selected" : ""}>${p}</option>`).join("")}</select>
+      <div class="card"><b>Voice</b><label>voice.provider</label><select data-path="voice.provider">${["kokoro", "edge", "elevenlabs", "openai", "espeak"].map((p) => `<option ${p === vo.provider ? "selected" : ""}>${p}</option>`).join("")}</select>
         ${f("voice.words_per_minute", vo.words_per_minute)}${f("voice.line_gap_s", vo.line_gap_s)}${f("voice.beat_gap_s", vo.beat_gap_s)}${f("voice.pre_reveal_pause_s", vo.pre_reveal_pause_s)}${f("voice.loudness_lufs", vo.loudness_lufs)}
         <label>voice.male_voices</label><input data-path="voice.male_voices" data-list="1" value="${esc(vo.male_voices.join(","))}"><label>voice.female_voices</label><input data-path="voice.female_voices" data-list="1" value="${esc(vo.female_voices.join(","))}">
+        <label>voice.kokoro_male_voices</label><input data-path="voice.kokoro_male_voices" data-list="1" value="${esc(vo.kokoro_male_voices.join(","))}">
+        <label>voice.kokoro_female_voices</label><input data-path="voice.kokoro_female_voices" data-list="1" value="${esc(vo.kokoro_female_voices.join(","))}">
         <label>voice.pronunciations (JSON)</label><textarea data-path="voice.pronunciations" data-json="1" rows="3">${esc(JSON.stringify(vo.pronunciations))}</textarea></div>
     </div><br><button class="primary" onclick="saveSettings()">Save settings</button>`;
   },
   async providers() {
     const p = await api("/api/providers");
+    const f2 = (k, val) => `<label>${k}</label><input data-path="${k}" type="number" value="${esc(val)}">`;
     const sel = (k, opts, cur) => `<label>providers.${k}</label><select data-path="providers.${k}">${opts.map((o) => `<option ${o === cur ? "selected" : ""}>${o}</option>`).join("")}</select>`;
     const s = p.selected;
-    return `<h1>API &amp; Provider Settings</h1><div class="sub">Secrets are read from <code>.env</code> and never shown or stored by the dashboard.</div>
+    const doc = await api("/api/doctor").catch(() => []);
+    return `<h1>API &amp; Provider Settings</h1><div class="sub">Default profile is fully local (Ollama + FLUX via mflux + Kokoro): no API keys. Secrets, if any, are read from <code>.env</code> and never shown.</div>
+    <div class="row">${p.profiles.map((n) => `<button onclick="act(()=>api('/api/profile',{method:'POST',body:{name:'${n}'}}),'Profile ${n} applied')">Use profile: ${n}</button>`).join("")}</div>
+    <h2>Machine check</h2>${table(doc, [["Check", (r) => r.check], ["Status", (r) => (r.ok ? '<span class="ok">OK</span>' : '<span class="err">Needs fix</span>')], ["Detail", (r) => `<span class="small">${esc(r.detail)}</span>`], ["Fix", (r) => `<code class="small">${esc(r.fix)}</code>`]])}
+    <h2>Secrets (optional)</h2>
     ${table(Object.entries(p.secrets).map(([k, v]) => ({ k, ...v })), [["Variable", (r) => `<code>${r.k}</code>`], ["Purpose", (r) => r.purpose], ["Configured", (r) => r.configured ? '<span class="ok">yes</span>' : '<span class="muted">no</span>']])}
     <div class="grid" style="margin-top:14px"><div class="card"><b>LLM</b>${sel("llm", p.available.llm, s.llm)}<label>providers.llm_model</label><input data-path="providers.llm_model" type="text" value="${esc(s.llm_model)}">
-      ${sel("llm_effort", ["low", "medium", "high", "xhigh", "max"], s.llm_effort)}${sel("llm_fallback", ["none", "pollinations", "openai_compatible"], s.llm_fallback)}
+      ${sel("llm_effort", ["low", "medium", "high", "xhigh", "max"], s.llm_effort)}${sel("llm_fallback", ["none", "ollama", "pollinations", "openai_compatible"], s.llm_fallback)}
       <label>providers.openai_compatible_base_url</label><input data-path="providers.openai_compatible_base_url" type="text" value="${esc(s.openai_compatible_base_url)}">
-      <label>providers.openai_compatible_model</label><input data-path="providers.openai_compatible_model" type="text" value="${esc(s.openai_compatible_model)}"></div>
-      <div class="card"><b>Images</b>${sel("image", p.available.image, s.image)}${sel("image_fallback", ["none", "procedural"], s.image_fallback)}<label>providers.image_model</label><input data-path="providers.image_model" type="text" value="${esc(s.image_model)}"></div>
+      <label>providers.openai_compatible_model</label><input data-path="providers.openai_compatible_model" type="text" value="${esc(s.openai_compatible_model)}">
+      <label>providers.ollama_base_url</label><input data-path="providers.ollama_base_url" type="text" value="${esc(s.ollama_base_url)}">
+      <label>providers.ollama_model</label><input data-path="providers.ollama_model" type="text" value="${esc(s.ollama_model)}">${f2("providers.ollama_num_ctx", s.ollama_num_ctx)}</div>
+      <div class="card"><b>Images</b>${sel("image", p.available.image, s.image)}${sel("image_fallback", ["none", "procedural"], s.image_fallback)}<label>providers.image_model</label><input data-path="providers.image_model" type="text" value="${esc(s.image_model)}">
+      <label>providers.mflux_model</label><input data-path="providers.mflux_model" type="text" value="${esc(s.mflux_model)}">${f2("providers.mflux_quantize", s.mflux_quantize)}${f2("providers.mflux_steps", s.mflux_steps)}
+      <label>providers.mflux_model_path</label><input data-path="providers.mflux_model_path" type="text" value="${esc(s.mflux_model_path)}">
+      <label>providers.a1111_base_url</label><input data-path="providers.a1111_base_url" type="text" value="${esc(s.a1111_base_url)}">${f2("providers.a1111_steps", s.a1111_steps)}
+      <label>providers.local_image_license</label><input data-path="providers.local_image_license" type="text" value="${esc(s.local_image_license)}"></div>
       <div class="card"><b>Test providers</b><div class="row" style="margin-top:8px">${["llm", "tts", "image", "research"].map((k) => `<button onclick="testProv('${k}')">${k}</button>`).join("")}</div><pre id="provres" class="small">–</pre></div></div>
     <br><button class="primary" onclick="saveSettings()">Save provider settings</button>`;
   },
